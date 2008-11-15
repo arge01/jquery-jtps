@@ -85,7 +85,8 @@
 }
 .jTPS thead th {
 	color: #000;
-	background: #f0f2f5 url(f0f2f5grad.gif) bottom repeat-x;
+/*	background: #f0f2f5 url(f0f2f5grad.gif) bottom repeat-x;*/
+	background: #eee url(eeGrad2.gif) bottom repeat-x;
 	border-bottom: 1px solid #ccc;
 	padding-top: 6px !important;
 }
