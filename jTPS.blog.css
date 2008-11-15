@@ -1,0 +1,9 @@
+#demoTable thead th {
+	white-space: nowrap;
+	overflow-x:hidden;
+	padding: 3px;
+}
+#demoTable tbody td {
+	padding: 3px;
+}
+
