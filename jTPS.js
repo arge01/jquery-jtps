@@ -1,6 +1,6 @@
 /*
  * jTPS - table sorting, pagination, and animated page scrolling
- *	version 0.3
+ *	version 0.4
  * Author: Jim Palmer
  * Released under MIT license.
  */
@@ -16,7 +16,7 @@
 			perPageSeperator:	'..',									// text or dom node that deliminates split in select page links
 			scrollDelay:		30,										// delay (in ms) between steps in anim. - IE has trouble showing animation with < 30ms delay
 			scrollStep:			1,										// how many tr's are scrolled per step in the animated vertical pagination scrolling
-			fixedLayout:		false									// SUPER SLOW - autoset the width/height on each cell and set table-layout to fixed after auto layout
+			fixedLayout:		true									// autoset the width/height on each cell and set table-layout to fixed after auto layout
 		}, opt));
 		
 		// generic pass-through object + other initial variables
@@ -26,6 +26,37 @@
 		// append jTPS class "stamp"
 		$(this).addClass('jTPS');
 		
+		// setup the fixed table-layout so that the animation doesn't bounce around - faux grid for table
+		if ( $(this).data('tableSettings').fixedLayout ) {
+			// "fix" the table layout and individual cell width & height settings
+			if ( $(this).css('table-layout') != 'fixed' ) {
+				// find max tbody td cell height
+				var maxCellHeight = 0;
+
+				// set width style on the TH headers (rely on jQuery with computed styles support)
+				$('thead th', this).each(function () { $(this).css('width', $(this).width()); });
+
+				// ensure browser-formated widths for each column in the thead and tbody
+				var tbodyCh = $('tbody', this)[0].childNodes, tmpp = 0;
+				// loop through tbody children and find the Nth <TR>
+				for ( var tbi=0, tbcl=tbodyCh.length; tbi < tbcl; tbi++ )
+					if ( tbodyCh[ tbi ].nodeName == 'TR' )
+						maxCellHeight = Math.max( maxCellHeight, tbodyCh[ tbi ].offsetHeight );
+
+				// now set the height attribute and/or style to the first TD cell (not the row)
+				for ( var tbi=0, tbcl=tbodyCh.length; tbi < tbcl; tbi++ )
+					if ( tbodyCh[ tbi ].nodeName == 'TR' )
+						for ( var tdi=0, trCh=tbodyCh[ tbi ].childNodes, tdcl=trCh.length; tdi < tdcl; tdi++ )
+							if ( trCh[ tdi ].nodeName == 'TD' ) {
+								trCh[ tdi ].style.height = maxCellHeight + 'px';
+								tdi = tdcl;
+							}
+
+				// now set the table layout to fixed
+				$(this).css('table-layout','fixed');
+			}
+		}
+
 		// remove all stub rows
 		$('.stubCell', this).remove();
 
@@ -35,30 +66,6 @@
 			stubHeight = $('tbody tr:first td:first', this).css('height');
 		for ( ; stubCount < stubs && stubs != perPage; stubCount++ )
 			$('tbody tr:last', this).after( '<tr class="stubCell"><td colspan="' + cols + '" style="height: ' + stubHeight + ';">&nbsp;</td></tr>' );
-
-		// only do intelligent fixed layouts on small tables - this kills the initial controls load time
-		// TODO - optimization
-		if ( $(this).data('tableSettings').fixedLayout ) {
-			// "fix" the table layout and individual cell width & height settings
-			if ( $('table', this).css('table-layout') != 'fixed' ) {
-				// find max tbody td cell height
-				var maxTDHeight = 0;
-				// ensure browser-formated widths for each column in the thead and tbody
-				$('tbody td', this).each(
-					function () { 
-						maxTDHeight = Math.max( maxTDHeight, ( 
-							$(this).height() + ( parseInt( $(this).css('paddingTop') ) || 0 ) + ( parseInt( $(this).css('paddingBottom') ) || 0 ) +
-							( parseInt( $(this).css('borderTopWidth') ) || 0 ) + ( parseInt( $(this).css('borderBottomWidth') ) || 0 )
-						));
-					}
-				);
-				$('tbody td', this).each(function () { $(this).css('height', maxTDHeight); });
-				// now correct their height
-				$('thead th', this).each(function () { $(this).css('width', $(this).width()); });
-				// now set the table layout to fixed
-				$('table', this).css('table-layout','fixed');
-			}
-		}
 
 		// paginate the result
 		if ( rowCount > perPage )
@@ -84,6 +91,7 @@
 						// hilight the sorted column
 						$(pT).find('tbody').find('td.sortedColumn').removeClass('sortedColumn');
 						$(pT).find('tbody tr:not(.stubCell)').each( function () { $(this).find('td:eq(' + tdInd + ')').addClass('sortedColumn'); } );
+						clearSelection();
 					}
 				);
 			}
@@ -135,6 +143,7 @@
 						var cPos = $('tbody tr:not(.hideTR):first', pT).prevAll().length,
 							ePos = $('tbody tr:not(.hideTR):not(.stubCell)', pT).length;
 						$('tfoot .status', pT).html( 'Showing ' + ( cPos + 1 ) + ' - ' + ( cPos + ePos ) + ' of ' + rowCount + '' );
+						clearSelection();
 					}
 				);
 			}
@@ -143,6 +152,14 @@
 		// show the correct paging status
 		var cPos = $('tbody tr:not(.hideTR):first', this).prevAll().length, ePos = $('tbody tr:not(.hideTR)', this).length;
 		$('tfoot .status', this).html( 'showing ' + ( cPos + 1 ) + ' - ' + ( cPos + ePos ) + ' of ' + rowCount );
+
+		// clear selected text function
+		function clearSelection () {
+			if ( document.selection && typeof(document.selection.empty) != 'undefined' )
+				document.selection.empty();
+			else if ( typeof(window.getSelection) === 'function' && typeof(window.getSelection().removeAllRanges) === 'function' )
+				window.getSelection().removeAllRanges();
+		}
 
 		// render the pagination functionality
 		function drawPageSelectors ( target, page ) {
@@ -162,10 +179,6 @@
 			$('tfoot .pageSelector:gt(' + ( ( page < 4 ) ? 4 : page ) + '):not(:last)', target).addClass('hidePageSelector')
 				.eq(0).after( '<div class="pageSelectorSeperator">' + $(target).data('tableSettings').perPageSeperator + '</div>' );
 			$('tfoot .pageSelector:eq(' + ( page - 1 ) + ')', target).addClass('hilightPageSelector');
-			$('tfoot .pageSelectorSeperator', target).css( 'width', $('tfoot .pageSelector:last', target).width() );
-
-			// auto-adjust the pageSelector widths
-			$('tfoot .pageSelector', target).css( 'width', $('tfoot .pageSelector:last', this).width() );
 
 			// remove the pager title if no pages necessary
 			if ( perPage >= rowCount )
@@ -193,6 +206,7 @@
 										ePos = $('tbody tr:not(.hideTR):not(.stubCell)', pT).length;
 									$('tfoot .status', pT).html( 'Showing ' + ( cPos + 1 ) + ' - ' + ( cPos + ePos ) + ' of ' + rowCount + '' );
 								}
+								clearSelection();
 								return false;
 							}
 
@@ -209,7 +223,7 @@
 							if ( endPos > rowCount )
 								endPos = (rowCount - 1);
 							// set the steps to be exponential for all the page scroll difference - i.e. faster for more pages to scroll
-							var sStep = $(pT).data('tableSettings').scrollStep * Math.abs( ( endPos - beginPos ) / perPage );
+							var sStep = $(pT).data('tableSettings').scrollStep * Math.ceil( Math.abs( ( endPos - beginPos ) / perPage ) );
 							if ( sStep > perPage ) sStep = perPage;
 							var steps = Math.ceil( Math.abs( beginPos - endPos ) / sStep );
 
@@ -220,7 +234,8 @@
 										// reset the scrollStep for the remaining items
 										if ( $(this).queue("fx").length == 0 )
 											sStep = ( Math.abs( beginPos - endPos ) % sStep ) || sStep;
-										if ( beginPos > endPos ) {				// scoll up
+										/* scoll up */
+										if ( beginPos > endPos ) {
 											$('tbody tr:not(.hideTR):first', pT).prevAll(':lt(' + sStep + ')').removeClass('hideTR');
 											if ( $('tbody tr:not(.hideTR)', pT).length > perPage )
 												$('tbody tr:not(.hideTR):last', pT).prevAll(':lt(' + ( sStep - 1 ) + ')').andSelf().addClass('hideTR');
@@ -228,7 +243,8 @@
 											var currRows =  $('tbody tr:not(.hideTR)', pT).length;
 											if ( currRows < perPage )
 												$('tbody tr:not(.hideTR):last', pT).nextAll(':lt(' + ( perPage - currRows ) + ')').removeClass('hideTR');
-										} else {								// scroll down
+										/* scroll down */
+										} else {
 											var endPoint = $('tbody tr:not(.hideTR):last', pT);
 											$('tbody tr:not(.hideTR):lt(' + sStep + ')', pT).addClass('hideTR');
 											$(endPoint).nextAll(':lt(' + sStep + ')').removeClass('hideTR');
@@ -241,6 +257,9 @@
 								);
 							}
 
+							// redraw the pagination
+							drawPageSelectors( pT, parseInt( $(this).html() ) );
+
 						}
 					);
 				}
@@ -248,7 +267,7 @@
 			
 		};
 
-		/* actual sort function */
+		/* sort function */
 		function sort ( target, tdIndex, desc ) {
 
 			var sorted = $('thead th:eq(' + tdIndex + ')', target).hasClass('sortAsc') ||
