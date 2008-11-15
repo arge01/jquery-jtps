@@ -1,10 +1,10 @@
 /*
  * jTPS - table sorting, pagination, and animated page scrolling
- *	version 0.1
+ *	version 0.2
  * Author: Jim Palmer
  * Released under MIT license.
  */
-(function($) {
+ (function($) {
 	$.fn.initTable = function ( opt ) {
 		$(this).data('tableSettings', $.extend({
 				perPages:			[5, 6, 10, 20, 50, 'ALL'],				// the "show per page" selection
@@ -25,9 +25,16 @@
 
 		// append jTPS class "stamp"
 		$(this).addClass('jTPS')
+		
+		// remove all stub rows
+		$('.stubCell', this).remove();
+
+		// DEBUG
+//		var dt = new Date();
 
 		// build tbody>tr>td structure for sorting
 		var display = []; 
+
 		$('tbody tr', this).each(
 			function (trIndex) { 
 				var tr = [];
@@ -39,26 +46,27 @@
 				display.push( tr );
 			}
 		);
-		
+
 		// intelligently sort (natural sort) through the array elements based off the index of the current row cell count
+		var nullChar = String.fromCharCode(0);
 		display = display.sort( 
 			function(a, b) {
 				// setup temp-scope variables for comparison evauluation
 				var x = a[tdIndex].toString().toLowerCase(), y = b[tdIndex].toString().toLowerCase(),
-					nC = String.fromCharCode(0), 
-					xN = x.replace(/([-]{0,1}[0-9.]{1,})/g, nC + '$1' + nC).split(nC),
-					yN = y.replace(/([-]{0,1}[0-9.]{1,})/g, nC + '$1' + nC).split(nC);
-				// sort by charIndex - i.e. natural sorting
-				for ( var cLoc=0, numS = Math.max( xN.length, yN.length ); cLoc < numS; cLoc++ ) {
+					xN = x.replace(/([-]{0,1}[0-9.]{1,})/g, nullChar + '$1' + nullChar).split(nullChar),
+					yN = y.replace(/([-]{0,1}[0-9.]{1,})/g, nullChar + '$1' + nullChar).split(nullChar);
+				// natural sorting through split numeric strings and default strings
+				for ( var cLoc=0, numS = Math.min( xN.length, yN.length ); cLoc < numS; cLoc++ ) {
 					if ( ( parseFloat( xN[cLoc] ) || xN[cLoc] ) < ( parseFloat( yN[cLoc] ) || yN[cLoc] ) )
 						return -1;
 					else if ( ( parseFloat( xN[cLoc] ) || xN[cLoc] ) > ( parseFloat( yN[cLoc] ) || yN[cLoc] ) )
 						return 1;
+
 				}
 				return 0;
 			}
 		);
-		
+
 		// if descending, reverse the already sorted array
 		if (desc) display = display.reverse();
 
@@ -74,8 +82,34 @@
 			}
 		); 
 
-		// ensure browser-formated widths for each column
-		$('thead td', this).each(function () { $(this).css('width', $(this).width()); });
+		// DEBUG
+//		$('#temp').empty().append( ( (new Date()).getTime() - dt.getTime() ) + 'ms<BR>');
+
+		// add the stub rows
+		var stubCount=0, cols = $('tbody tr:first td', this).length, stubs = ( perPage - ( $('tbody tr', this).length % perPage ) );
+		for ( ; stubCount < stubs && stubs != perPage; stubCount++ )
+			$('tbody tr:last', this).after( '<tr class="stubCell"><td colspan="' + cols + '" style="height: ' + $('tbody tr:first td:first', this).css('height') + ';">&nbsp;</td></tr>' );
+
+		// "fix" the table layout and individual cell width & height settings
+		if ( $('table', this).css('table-layout') != 'fixed' ) {
+			// find max tbody td cell height
+			var maxTDHeight = 0;
+			// ensure browser-formated widths for each column in the thead and tbody
+			$('tbody td', this).each(
+				function () { 
+					maxTDHeight = Math.max( maxTDHeight, ( 
+						$(this).height() + ( parseInt( $(this).css('paddingTop') ) || 0 ) + ( parseInt( $(this).css('paddingBottom') ) || 0 ) +
+						( parseInt( $(this).css('borderTopWidth') ) || 0 ) + ( parseInt( $(this).css('borderBottomWidth') ) || 0 )
+					));
+				}
+			);
+			$('tbody td', this).each(function () { $(this).css('height', maxTDHeight); });
+			// now correct their height
+			$('thead td', this).each(function () { $(this).css('width', $(this).width()); });
+			// now set the table layout to fixed
+			$('table', this).css('table-layout','fixed');
+		}
+		
 
 		// clear prior pagination
 		$('tbody tr.hideTR', this).removeClass('hideTR');
@@ -89,7 +123,7 @@
 
 		// hilight the sorted column
 		$('tbody', this).find('td.sortedColumn').removeClass('sortedColumn');
-		$('tbody tr', this).each( function () { $('td:eq(' + tdIndex + ')', this).addClass('sortedColumn'); } );
+		$('tbody tr:not(.stubCell)', this).each( function () { $('td:eq(' + tdIndex + ')', this).addClass('sortedColumn'); } );
 
 		// bind sort functionality to theader onClicks
 		$('thead td[sort]', this).each(
@@ -102,22 +136,17 @@
 			}
 		);
 
-		// bind mouseover for each tbody row and change cell (td) hover style
-		$('tbody tr', this).unbind('mouseover mouseout').bind('mouseover mouseout', 
-			function (e) {
-				e.type == 'mouseover' ? $(this).children('td').addClass('hilightRow') : $(this).children('td').removeClass('hilightRow');
-			}
-		);
-
 		// add perPage selection link + delim dom node
 		$('tfoot .selectPerPage', this).empty();
 		var pageSel = perPages.length;
-		while ( pageSel-- ) $('tfoot .selectPerPage', this).prepend( ( (pageSel > 0) ? $(this).data('tableSettings').perPageDelim : '' ) + '<span class="perPageSelector">' + perPages[pageSel] + '</span>' );
+		while ( pageSel-- ) 
+			$('tfoot .selectPerPage', this).prepend( ( (pageSel > 0) ? $(this).data('tableSettings').perPageDelim : '' ) + '<span class="perPageSelector">' + perPages[pageSel] + '</span>' );
 
 		// add pagination links
 		$('tfoot .pagination', this).empty();
 		var pages = (perPage >= display.length) ? 0 : Math.ceil( display.length / perPage ), totalPages = pages;
-		while ( pages-- ) $('tfoot .pagination', this).prepend( '<div class="pageSelector">' + ( pages + 1 ) + '</div>' );
+		while ( pages-- ) 
+			$('tfoot .pagination', this).prepend( '<div class="pageSelector">' + ( pages + 1 ) + '</div>' );
 
 		// arrange the pagination - if really long
 		var drawPageSelectors = function ( target, page ) {
@@ -174,6 +203,8 @@
 						// setup the pagination variables
 						var beginPos = $('tbody tr:not(.hideTR):first', pT).prevAll().length;
 						var endPos = ( ( parseInt( $(this).html() ) - 1 ) * perPage );
+						if ( endPos > display.length )
+							endPos = (display.length - 1);
 						// set the steps to be exponential for all the page scroll difference - i.e. faster for more pages to scroll
 						var sStep = $(pT).data('tableSettings').scrollStep * Math.abs( ( endPos - beginPos ) / perPage );
 						if ( sStep > perPage ) sStep = perPage;
@@ -201,7 +232,7 @@
 									}
 									// update status bar
 									var cPos = $('tbody tr:not(.hideTR):first', pT).prevAll().length,
-										ePos = $('tbody tr:not(.hideTR)', pT).length;
+										ePos = $('tbody tr:not(.hideTR):not(.stubCell)', pT).length;
 									$('tfoot .status', pT).html(
 										'Showing ' + ( cPos + 1 ) + ' - ' + ( cPos + ePos ) + ' of ' + display.length + '' );
 								}
@@ -214,4 +245,5 @@
 		);
 		return this;				// chainable
 	};
+	
 })(jQuery);
