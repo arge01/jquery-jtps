@@ -1,6 +1,6 @@
 /*
  * jTPS - table sorting, pagination, and animated page scrolling
- *	version 0.5
+ *	version 0.5.1
  * Author: Jim Palmer
  * Released under MIT license.
  */
@@ -21,7 +21,7 @@
 		
 		// generic pass-through object + other initial variables
 		var pT = $(this), page = page || 1, perPages = $(this).data('tableSettings').perPages, perPage = perPage || perPages[0],
-			rowCount = $('tbody tr', this).length;
+			rowCount = $('>tbody', this).find('tr').length;
 
 		// append jTPS class "stamp"
 		$(this).addClass('jTPS');
@@ -34,10 +34,10 @@
 				var maxCellHeight = 0;
 
 				// set width style on the TH headers (rely on jQuery with computed styles support)
-				$('thead th', this).each(function () { $(this).css('width', $(this).width()); });
+				$('>thead', this).find('th,td').each(function () { $(this).css('width', $(this).width()); });
 
 				// ensure browser-formated widths for each column in the thead and tbody
-				var tbodyCh = $('tbody', this)[0].childNodes, tmpp = 0;
+				var tbodyCh = $('>tbody',this)[0].childNodes, tmpp = 0;
 				// loop through tbody children and find the Nth <TR>
 				for ( var tbi=0, tbcl=tbodyCh.length; tbi < tbcl; tbi++ )
 					if ( tbodyCh[ tbi ].nodeName == 'TR' )
@@ -60,39 +60,38 @@
 		$('.stubCell', this).remove();
 
 		// add the stub rows
-		var stubCount=0, cols = Math.max( $('thead:first tr:last th', this).length, parseInt( $('thead:first tr:last th').attr('colspan') || 0 ) ), 
-			stubs = ( perPage - ( $('tbody tr', this).length % perPage ) ),
-			stubHeight = $('tbody tr:first td:first', this).css('height');
+		var stubCount=0, cols = Math.max( $('>thead:first tr:last th,>thead:first tr:last td', this).length, parseInt( $('>thead:first tr:last th,>thead:first tr:last td').attr('colspan') || 0 ) ), 
+			stubs = ( perPage - ( $('>tbody>tr', this).length % perPage ) ),
+			stubHeight = $('>tbody>tr:first>td:first', this).css('height');
 		for ( ; stubCount < stubs && stubs != perPage; stubCount++ )
-			$('tbody tr:last', this).after( '<tr class="stubCell"><td colspan="' + cols + '" style="height: ' + stubHeight + ';">&nbsp;</td></tr>' );
+			$('>tbody>tr:last', this).after( '<tr class="stubCell"><td colspan="' + cols + '" style="height: ' + stubHeight + ';">&nbsp;</td></tr>' );
 
 		// paginate the result
 		if ( rowCount > perPage && perPage != 0 )
-			$('tbody tr:gt(' + (perPage - 1) + ')', this).addClass('hideTR');
+			$('>tbody>tr:gt(' + (perPage - 1) + ')', this).addClass('hideTR');
 
 		// bind sort functionality to theader
 		if (perPage != 0)
-			$('thead th[sort]', this).each(
+			$('>thead [sort],>thead .sort', this).each(
 				function (tdInd) {
 					$(this).addClass('sortableHeader').unbind('click').bind('click',
 						function () {
-							var bodyNo = $(pT).find('thead').index( $(this).parent().parent() ),
-								columnNo = $(pT).find('thead:eq(' + bodyNo + ') tr:last th').index( $(this) ),
-								desc = $(pT).find('thead:eq(' + bodyNo + ') th:eq(' + columnNo + ')').hasClass('sortAsc') ? true : false;
+							var columnNo = $('>thead tr:last', pT).children().index( $(this) ),
+								desc = $('>thead [sort],>thead .sort', pT).eq(columnNo).hasClass('sortAsc') ? true : false;
 							// sort the rows
-							sort( pT, columnNo, desc, bodyNo );
+							sort( pT, columnNo, desc );
 							// show first perPages rows
-							var page = parseInt( $(pT).find('.hilightPageSelector:first').html() ) || 1;
-							$(pT).find('tbody:eq(' + bodyNo + ') tr').removeClass('hideTR').filter(':gt(' + ( ( perPage - 1 ) * page ) + ')').addClass('hideTR');
-							$(pT).find('tbody:eq(' + bodyNo + ') tr:lt(' + ( ( perPage - 1 ) * ( page - 1 ) ) + ')').addClass('hideTR');
+							var page = parseInt( $('.hilightPageSelector:first', pT).html() ) || 1;
+							$('>tbody>tr', pT).removeClass('hideTR').filter(':gt(' + ( ( perPage - 1 ) * page ) + ')').addClass('hideTR');
+							$('>tbody>tr:lt(' + ( ( perPage - 1 ) * ( page - 1 ) ) + ')', pT).addClass('hideTR');
 							// scroll to first page
-							$(pT).find('.pageSelector:first').click();
+							$('.pageSelector:first', pT).click();
 							// hilight the sorted column header
-							$(pT).find('thead:eq(' + bodyNo + ') .sortDesc, thead:eq(' + bodyNo + ') .sortAsc').removeClass('sortDesc').removeClass('sortAsc');
-							$(pT).find('thead:eq(' + bodyNo + ') tr:last th:eq(' + columnNo + ')').addClass( desc ? 'sortDesc' : 'sortAsc' );
+							$('>thead .sortDesc,>thead .sortAsc', pT).removeClass('sortDesc').removeClass('sortAsc');
+							$('>thead [sort],>thead .sort', pT).eq(columnNo).addClass( desc ? 'sortDesc' : 'sortAsc' );
 							// hilight the sorted column
-							$(pT).find('tbody:eq(' + bodyNo + ')').find('td.sortedColumn').removeClass('sortedColumn');
-							$(pT).find('tbody:eq(' + bodyNo + ') tr:not(.stubCell)').each( function () { $(this).find('td:eq(' + columnNo + ')').addClass('sortedColumn'); } );
+							$('>tbody>tr>td.sortedColumn', pT).removeClass('sortedColumn');
+							$('>tbody>tr:not(.stubCell)', pT).each( function () { $('>td:eq(' + columnNo + ')', this).addClass('sortedColumn'); } );
 							clearSelection();
 						}
 					);
@@ -100,17 +99,17 @@
 			);
 
 		// add perPage selection link + delim dom node
-		$('tfoot .selectPerPage', this).empty();
+		$('>.nav .selectPerPage', this).empty();
 		var pageSel = perPages.length;
 		while ( pageSel-- ) 
-			$('tfoot .selectPerPage', this).prepend( ( (pageSel > 0) ? $(this).data('tableSettings').perPageDelim : '' ) + 
+			$('>.nav .selectPerPage', this).prepend( ( (pageSel > 0) ? $(this).data('tableSettings').perPageDelim : '' ) + 
 				'<span class="perPageSelector">' + perPages[pageSel] + '</span>' );
 
 		// now draw the page selectors
 		drawPageSelectors( this, page || 1 );
 
 		// prepend the instructions and attach select hover and click events
-		$('tfoot .selectPerPage', this).prepend( $(this).data('tableSettings').perPageText ).find('.perPageSelector').each(
+		$('>.nav .selectPerPage', this).prepend( $(this).data('tableSettings').perPageText ).find('.perPageSelector').each(
 			function () {
 				if ( ( parseInt($(this).html()) || rowCount ) == perPage )
 					$(this).addClass('perPageSelected');
@@ -127,24 +126,24 @@
 						// remove all stub rows
 						$('.stubCell', this).remove();
 						// redraw stub rows
-						var stubCount=0, cols = $(pT).find('thead th').length, 
-							stubs = ( perPage - ( $(pT).find('tbody tr').length % perPage ) ), 
-							stubHeight = $(pT).find('tbody tr:first td:first').css('height');
+						var stubCount=0, cols = $('>thead th,>thead td', pT).length, 
+							stubs = ( perPage - ( $('>tbody>tr', pT).length % perPage ) ), 
+							stubHeight = $('>tbody>tr:first>td:first', pT).css('height');
 						for ( ; stubCount < stubs && stubs != perPage; stubCount++ )
-							$(pT).find('tbody tr:last').after( '<tr class="stubCell"><td colspan="' + cols + '" style="height: ' + stubHeight + ';">&nbsp;</td></tr>' );
+							$('>tbody>tr:last', pT).after( '<tr class="stubCell"><td colspan="' + cols + '" style="height: ' + stubHeight + ';">&nbsp;</td></tr>' );
 						// set new visible rows
-						$(pT).find('tbody tr').removeClass('hideTR').filter(':gt(' + ( ( perPage - 1 ) * page ) + ')').addClass('hideTR');
-						$(pT).find('tbody tr:lt(' + ( ( perPage - 1 ) * ( page - 1 ) ) + ')').addClass('hideTR');
+						$('>tbody>tr', pT).removeClass('hideTR').filter(':gt(' + ( ( perPage - 1 ) * page ) + ')').addClass('hideTR');
+						$('>tbody>tr:lt(' + ( ( perPage - 1 ) * ( page - 1 ) ) + ')', pT).addClass('hideTR');
 						// back to the first page
-						$(pT).find('.pageSelector:first').click();
+						$('.pageSelector:first', pT).click();
 						$(this).siblings('.perPageSelected').removeClass('perPageSelected');
 						$(this).addClass('perPageSelected');
 						// redraw the pagination
 						drawPageSelectors( pT, 1 );
 						// update status bar
-						var cPos = $('tbody tr:not(.hideTR):first', pT).prevAll().length,
-							ePos = $('tbody tr:not(.hideTR):not(.stubCell)', pT).length;
-						$('tfoot .status', pT).html( 'Showing ' + ( cPos + 1 ) + ' - ' + ( cPos + ePos ) + ' of ' + rowCount + '' );
+						var cPos = $('>tbody>tr:not(.hideTR):first', pT).prevAll().length,
+							ePos = $('>tbody>tr:not(.hideTR):not(.stubCell)', pT).length;
+						$('>.nav .status', pT).html( 'Showing ' + ( cPos + 1 ) + ' - ' + ( cPos + ePos ) + ' of ' + rowCount + '' );
 						clearSelection();
 					}
 				);
@@ -152,9 +151,9 @@
 		);
 		
 		// show the correct paging status
-		var cPos = $('tbody tr:not(.hideTR):first', this).prevAll().length, 
-			ePos = $('tbody tr:not(.hideTR):not(.stubCell)', this).length;
-		$('tfoot .status', this).html( 'showing ' + ( cPos + 1 ) + ' - ' + ( cPos + ePos ) + ' of ' + rowCount );
+		var cPos = $('>tbody>tr:not(.hideTR):first', this).prevAll().length, 
+			ePos = $('>tbody>tr:not(.hideTR):not(.stubCell)', this).length;
+		$('>.nav .status', this).html( 'showing ' + ( cPos + 1 ) + ' - ' + ( cPos + ePos ) + ' of ' + rowCount );
 
 		// clear selected text function
 		function clearSelection () {
@@ -168,29 +167,30 @@
 		function drawPageSelectors ( target, page ) {
 
 			// add pagination links
-			$('tfoot .pagination', target).empty();
+			$('>.nav .pagination', target).empty();
 			var pages = ( perPage >= rowCount || perPage == 0 ) ? 0 : Math.ceil( rowCount / perPage ), totalPages = pages;
-			while ( pages-- ) 
-				$('tfoot .pagination', target).prepend( '<div class="pageSelector">' + ( pages + 1 ) + '</div>' );
-		
-			var pageCount = $('tfoot .pageSelector', target).length;
-			$('tfoot .pageSelector.hidePageSelector', target).removeClass('hidePageSelector');
-			$('tfoot .pageSelector.hilightPageSelector', target).removeClass('hilightPageSelector');
-			$('tfoot .pageSelectorSeperator', target).remove();
-			$('tfoot .pageSelector:lt(' + ( ( page > ( pageCount - 4 ) ) ? ( pageCount - 5 ) : ( page - 2 ) ) + '):not(:first)', target).addClass('hidePageSelector')
-				.eq(0).after( '<div class="pageSelectorSeperator">' + $(target).data('tableSettings').perPageSeperator + '</div>' );
-			$('tfoot .pageSelector:gt(' + ( ( page < 4 ) ? 4 : page ) + '):not(:last)', target).addClass('hidePageSelector')
-				.eq(0).after( '<div class="pageSelectorSeperator">' + $(target).data('tableSettings').perPageSeperator + '</div>' );
-			$('tfoot .pageSelector:eq(' + ( page - 1 ) + ')', target).addClass('hilightPageSelector');
+			while ( pages-- )
+				$('>.nav .pagination', target).prepend( '<div class="pageSelector">' + ( pages + 1 ) + '</div>' );
+			var pageCount = $('>.nav:first .pageSelector', target).length;
+			$('>.nav', target).each(function () {
+				$('.hidePageSelector', this).removeClass('hidePageSelector');
+				$('.hilightPageSelector', this).removeClass('hilightPageSelector');
+				$('.pageSelectorSeperator', this).remove();
+				$('.pageSelector:lt(' + ( ( page > ( pageCount - 4 ) ) ? ( pageCount - 5 ) : ( page - 2 ) ) + '):not(:first)', this).addClass('hidePageSelector')
+					.eq(0).after( '<div class="pageSelectorSeperator">' + $(target).data('tableSettings').perPageSeperator + '</div>' );
+				$('.pageSelector:gt(' + ( ( page < 4 ) ? 4 : page ) + '):not(:last)', this).addClass('hidePageSelector')
+					.eq(0).after( '<div class="pageSelectorSeperator">' + $(target).data('tableSettings').perPageSeperator + '</div>' );
+				$('.pageSelector:eq(' + ( page - 1 ) + ')', this).addClass('hilightPageSelector');
+			});
 
 			// remove the pager title if no pages necessary
 			if ( perPage >= rowCount )
-				$('tfoot .paginationTitle', target).css('display','none');
+				$('>.nav .paginationTitle', target).css('display','none');
 			else
-				$('tfoot .paginationTitle', target).css('display','');
+				$('>.nav .paginationTitle', target).css('display','');
 			
 			// bind the pagination onclick
-			$('tfoot .pagination .pageSelector', target).each(
+			$('>.nav .pagination .pageSelector', target).each(
 				function () {
 					$(this).bind('click',
 						function () {
@@ -202,26 +202,25 @@
 									$(this).parent().stop().queue( "fx", [] ).stop();
 									// set the user directly on the correct page without animation
 									var beginPos = ( ( parseInt( $(this).html() ) - 1 ) * perPage ), endPos = beginPos + perPage;
-									$('tbody tr', pT).removeClass('hideTR').addClass('hideTR');
-									$('tbody tr:gt(' + (beginPos - 2) + '):lt(' + ( perPage ) + ')', pT).andSelf().removeClass('hideTR');
+									$('>tbody> tr', pT).removeClass('hideTR').addClass('hideTR');
+									$('>tbody>tr:gt(' + (beginPos - 2) + '):lt(' + ( perPage ) + ')', pT).andSelf().removeClass('hideTR');
 									// update status bar
-									var cPos = $('tbody tr:not(.hideTR):first', pT).prevAll().length,
-										ePos = $('tbody tr:not(.hideTR):not(.stubCell)', pT).length;
-									$('tfoot .status', pT).html( 'Showing ' + ( cPos + 1 ) + ' - ' + ( cPos + ePos ) + ' of ' + rowCount + '' );
+									var cPos = $('>tbody>tr:not(.hideTR):first', pT).prevAll().length,
+										ePos = $('>tbody>tr:not(.hideTR):not(.stubCell)', pT).length;
+									$('>.nav .status', pT).html( 'Showing ' + ( cPos + 1 ) + ' - ' + ( cPos + ePos ) + ' of ' + rowCount + '' );
 								}
 								clearSelection();
 								return false;
 							}
 
 							// hilight the specific page button
-							$(this).parent().find('.hilightPageSelector').removeClass('hilightPageSelector');
 							$(this).addClass('hilightPageSelector');
 
 							// really stop all animations
 							$(this).parent().stop().queue( "fx", [] ).stop().dequeue();
 
 							// setup the pagination variables
-							var beginPos = $('tbody tr:not(.hideTR):first', pT).prevAll().length,
+							var beginPos = $('>tbody>tr:not(.hideTR):first', pT).prevAll().length,
 								endPos = ( ( parseInt( $(this).html() ) - 1 ) * perPage );
 							if ( endPos > rowCount )
 								endPos = (rowCount - 1);
@@ -239,23 +238,23 @@
 											sStep = ( Math.abs( beginPos - endPos ) % sStep ) || sStep;
 										/* scoll up */
 										if ( beginPos > endPos ) {
-											$('tbody tr:not(.hideTR):first', pT).prevAll(':lt(' + sStep + ')').removeClass('hideTR');
-											if ( $('tbody tr:not(.hideTR)', pT).length > perPage )
-												$('tbody tr:not(.hideTR):last', pT).prevAll(':lt(' + ( sStep - 1 ) + ')').andSelf().addClass('hideTR');
+											$('>tbody>tr:not(.hideTR):first', pT).prevAll(':lt(' + sStep + ')').removeClass('hideTR');
+											if ( $('>tbody>tr:not(.hideTR)', pT).length > perPage )
+												$('>tbody>tr:not(.hideTR):last', pT).prevAll(':lt(' + ( sStep - 1 ) + ')').andSelf().addClass('hideTR');
 											// if scrolling up from less rows than perPage - compensate if < perPage
-											var currRows =  $('tbody tr:not(.hideTR)', pT).length;
+											var currRows =  $('>tbody>tr:not(.hideTR)', pT).length;
 											if ( currRows < perPage )
-												$('tbody tr:not(.hideTR):last', pT).nextAll(':lt(' + ( perPage - currRows ) + ')').removeClass('hideTR');
+												$('>tbody>tr:not(.hideTR):last', pT).nextAll(':lt(' + ( perPage - currRows ) + ')').removeClass('hideTR');
 										/* scroll down */
 										} else {
-											var endPoint = $('tbody tr:not(.hideTR):last', pT);
-											$('tbody tr:not(.hideTR):lt(' + sStep + ')', pT).addClass('hideTR');
+											var endPoint = $('>tbody>tr:not(.hideTR):last', pT);
+											$('>tbody>tr:not(.hideTR):lt(' + sStep + ')', pT).addClass('hideTR');
 											$(endPoint).nextAll(':lt(' + sStep + ')').removeClass('hideTR');
 										}
 										// update status bar
-										var cPos = $('tbody tr:not(.hideTR):first', pT).prevAll().length,
-											ePos = $('tbody tr:not(.hideTR):not(.stubCell)', pT).length;
-										$('tfoot .status', pT).html( 'Showing ' + ( cPos + 1 ) + ' - ' + ( cPos + ePos ) + ' of ' + rowCount + '' );
+										var cPos = $('>tbody>tr:not(.hideTR):first', pT).prevAll().length,
+											ePos = $('>tbody>tr:not(.hideTR):not(.stubCell)', pT).length;
+										$('>.nav .status', pT).html( 'Showing ' + ( cPos + 1 ) + ' - ' + ( cPos + ePos ) + ' of ' + rowCount + '' );
 									}
 								);
 							}
@@ -269,101 +268,67 @@
 			);
 			
 		};
-
-		/* sort function */
-		function sort ( target, tdIndex, desc, bodyNo ) {
-			var sorted = $('thead:eq(' + bodyNo + ') th:eq(' + tdIndex + ')', target).hasClass('sortAsc') ||
-				$('thead:eq(' + bodyNo + ') th:eq(' + tdIndex + ')', target).hasClass('sortDesc') || false,
-				nullChar = String.fromCharCode(0), re = /([-]{0,1}[0-9.]{1,})/g,
-				rows = $('tbody:eq(' + bodyNo + ') tr:not(.stubCell)', target).get(), procRow = [];
+		// sort wrapper function
+		function sort ( target, tdIndex, desc ) {
+			var fCol = $('>thead th,>thead th', target).get(tdIndex),
+				sorted = $(fCol).hasClass('sortAsc') || $(fCol).hasClass('sortDesc') || false,
+				nullChar = String.fromCharCode(0), 
+				re = /([-]?[0-9\.]+)/g,
+				rows = $('>tbody>tr:not(.stubCell)', target).get(), 
+				procRow = [];
 
 			$(rows).each(
 				function(key, val) {
-					// setup temp-scope variables for comparison evauluation
-					var x = ( $('td:eq(' + tdIndex + ')', val).html() || '' ).toString().toLowerCase() || '',
-						xN = x.replace(re, nullChar + '$1' + nullChar).split(nullChar),
-						tD = (new Date(x)).getTime(), xNl = xN.length;
-					if ( tD )
-						procRow.push( tD + ',' + (procRow.length) );
-					else {
-						var dS = [];
-						for (var i=0; i < xNl; i++)
-							dS.push( (new Date( xN[ i ] )).getTime() || parseFloat( xN[ i ] ) || xN[ i ] );
-						procRow.push( dS.join(',') + ',' + (procRow.length) );
-					}
+					procRow.push( $('>td:eq(' + tdIndex + ')', val).text() + nullChar + procRow.length );
 				}
 			);
-
 			if ( !sorted ) {
-				// use the quick sort algorithm
-				quickSort( procRow, 0, (rows.length - 1) );
-				// properly position order of sort
-				if ( !desc )
-					procRow.reverse();
+				// natural sort
+				procRow.sort(
+					function naturalSort (a, b) {
+						// setup temp-scope variables for comparison evauluation
+						var re = /(-?[0-9\.]+)/g,
+							nC = String.fromCharCode(0),
+							x = a.toString().toLowerCase().split(nC)[0] || '',
+							y = b.toString().toLowerCase().split(nC)[0] || '',
+							xN = x.replace( re, nC + '$1' + nC ).split(nC),
+							yN = y.replace( re, nC + '$1' + nC ).split(nC),
+							xD = (new Date(x)).getTime(),
+							yD = xD ? (new Date(y)).getTime() : null;
+						// natural sorting of dates
+						if ( yD )
+							if ( xD < yD ) return -1;
+							else if ( xD > yD )	return 1;
+						// natural sorting through split numeric strings and default strings
+						for( var cLoc = 0, numS = Math.max(xN.length, yN.length); cLoc < numS; cLoc++ ) {
+							oFxNcL = parseFloat(xN[cLoc]) || xN[cLoc];
+							oFyNcL = parseFloat(yN[cLoc]) || yN[cLoc];
+							if (oFxNcL < oFyNcL) return -1;
+							else if (oFxNcL > oFyNcL) return 1;
+						}
+						return 0;
+					});
+				if ( !desc ) procRow.reverse(); // properly position order of sort
 			}
-
 			// now re-order the parent tbody based off the quick sorted tbody map
-			$('tbody:eq(' + bodyNo + ')', target).attr('temp','true').before('<tbody></tbody>');
-			var nr = procRow.length, tf = $('tbody:eq(' + bodyNo + ')', target)[0];
+			$('>tbody', target).addClass('jtpstemp').before('<tbody></tbody>');
+			var nr = procRow.length, tf = $('>tbody', target)[0];
 			// move the row from old tbody to new tbody in order of new tbody with replaceWith to retain original tbody row positioning
 			if ( sorted )
 				while ( nr-- )
 					tf.appendChild( rows[ nr ] );
 			else
 				while ( nr-- )
-					tf.appendChild( rows[ parseInt( procRow[ nr ].split(',').pop() ) ] );
+					tf.appendChild( rows[ parseInt( procRow[ nr ].split(nullChar).pop() ) ] );
 			// remove the old table
-			$('tbody[temp=true]', target).remove();
+			$('>tbody.jtpstemp', target).remove();
 			// redraw stub rows
-			var stubCount=0, cols = $('thead:eq(' + bodyNo + ') tr:last th', target).length, 
-				stubs = ( perPage - ( $('tbody:eq(' + bodyNo + ') tr', target).length % perPage ) ), 
-				stubHeight = $('tbody:eq(' + bodyNo + ') tr:first td:first', target).css('height');
+			var stubCount=0, cols = $('>thead>tr:last th', target).length, 
+				stubs = ( perPage - ( $('>tbody>tr', target).length % perPage ) ), 
+				stubHeight = $('>tbody>tr:first>td:first', target).css('height');
 			for ( ; stubCount < stubs && stubs != perPage; stubCount++ )
-				$('tbody:eq(' + bodyNo + ') tr:last', target).after( '<tr class="stubCell"><td colspan="' + cols + '" style="height: ' + stubHeight + ';">&nbsp;</td></tr>' );
-
+				$('>tbody>tr:last', target).after( '<tr class="stubCell"><td colspan="' + cols + '" style="height: ' + stubHeight + ';">&nbsp;</td></tr>' );
 		}
-
-		/* Quick Sort algorithm - instantiation of Michael Lamont's Quick Sort pseudocode from http://linux.wku.edu/~lamonml/algor/sort/quick.html */
-		function quickSort ( numbers, left, right ) {
-			var l_hold = left, r_hold = right, pivot = numbers[left];
-			// natural sort comparison "operator overload"
-			var chCompare = function ( a, b ) {
-				var ca = a.split(',').slice( 0, ( a.length - 1 ) ), 
-					cb = b.split(',').slice( 0, ( a.length - 1 ) );
-				for ( var cLoc=0, nMin = Math.min( ca.length, cb.length ), nMax = Math.max( ca.length, cb.length ); cLoc < nMax; cLoc++ ) {
-					if ( ( parseFloat( ca[ cLoc ] ) || ca[ cLoc ] ) < ( parseFloat( cb[ cLoc ] ) || cb[ cLoc ] ) )
-						return -1;
-					if ( ( parseFloat( ca[ cLoc ] ) || ca[ cLoc ] ) > ( parseFloat( cb[ cLoc ] ) || cb[ cLoc ] ) )
-						return 1;
-					if ( cLoc > nMin && cLoc <= nMax )
-						return 0;
-				}
-				return 0;
-			}
-			while (left < right) {
-				while ( ( chCompare( numbers[right], pivot ) >= 0 ) && ( left < right ) )
-					right--;
-				if (left != right) {
-					numbers[left] = numbers[right];
-					left++;
-				}
-				while ( ( chCompare( numbers[left], pivot ) <= 0 ) && ( left < right ) )
-					left++;
-				if (left != right) {
-					numbers[right] = numbers[left];
-					right--;
-				}
-			}
-			numbers[left] = pivot;
-			pivot = left;
-			left = l_hold;
-			right = r_hold;
-			if (left < pivot)
-				quickSort( numbers, left, ( pivot - 1 ) );
-			if (right > pivot)
-				quickSort( numbers, ( pivot + 1 ), right );
-		};
-
 		// chainable
 		return this;
 	};
