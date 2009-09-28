@@ -16,7 +16,8 @@
 			perPageSeperator:	'..',									// text or dom node that deliminates split in select page links
 			scrollDelay:		30,										// delay (in ms) between steps in anim. - IE has trouble showing animation with < 30ms delay
 			scrollStep:			2,										// how many tr's are scrolled per step in the animated vertical pagination scrolling
-			fixedLayout:		true									// autoset the width/height on each cell and set table-layout to fixed after auto layout
+			fixedLayout:		true,									// autoset the width/height on each cell and set table-layout to fixed after auto layout
+			clickCallback:		function () {}							// callback function after clicks on sort, perpage and pagination
 		}, opt));
 		
 		// generic pass-through object + other initial variables
@@ -84,8 +85,9 @@
 							var page = parseInt( $('.hilightPageSelector:first', pT).html() ) || 1;
 							$('>tbody>tr', pT).removeClass('hideTR').filter(':gt(' + ( ( perPage - 1 ) * page ) + ')').addClass('hideTR');
 							$('>tbody>tr:lt(' + ( ( perPage - 1 ) * ( page - 1 ) ) + ')', pT).addClass('hideTR');
-							// scroll to first page
-							$('.pageSelector:first', pT).click();
+							// scroll to first page if not already
+							if ($('.pageSelector', pT).index($('.hilightPageSelector', pT)) > 0)
+								$('.pageSelector:first', pT).click();
 							// hilight the sorted column header
 							$('>thead .sortDesc,>thead .sortAsc', pT).removeClass('sortDesc').removeClass('sortAsc');
 							$('>thead [sort],>thead .sort', pT).eq(columnNo).addClass( desc ? 'sortDesc' : 'sortAsc' );
@@ -93,6 +95,8 @@
 							$('>tbody>tr>td.sortedColumn', pT).removeClass('sortedColumn');
 							$('>tbody>tr:not(.stubCell)', pT).each( function () { $('>td:eq(' + columnNo + ')', this).addClass('sortedColumn'); } );
 							clearSelection();
+							// callback function after pagination renderd
+							$(pT).data('tableSettings').clickCallback();
 						}
 					);
 				}
@@ -145,6 +149,8 @@
 							ePos = $('>tbody>tr:not(.hideTR):not(.stubCell)', pT).length;
 						$('>.nav .status', pT).html( 'Showing ' + ( cPos + 1 ) + ' - ' + ( cPos + ePos ) + ' of ' + rowCount + '' );
 						clearSelection();
+						// callback function after pagination renderd
+						$(pT).data('tableSettings').clickCallback();
 					}
 				);
 			}
@@ -258,10 +264,13 @@
 									}
 								);
 							}
-
+							
 							// redraw the pagination
 							drawPageSelectors( pT, parseInt( $(this).html() ) );
-
+							
+							// callback function after pagination renderd
+							$(pT).data('tableSettings').clickCallback();
+							
 						}
 					);
 				}
